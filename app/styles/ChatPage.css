@@ -1,0 +1,108 @@
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: black;
+  color: rgb(0, 0, 0);
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.chat-header {
+  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid white;
+}
+
+.chat-title {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid white;
+  border-radius: 8px;
+}
+
+.chat-sidebar {
+  width: 33%;
+  padding: 24px;
+  border-top: 1px solid white;
+  border-left: 1px solid white;
+}
+
+.mobile-menu-toggle {
+  display: block;
+}
+
+.toggle-button {
+  width: 100%;
+  border: 1px solid white;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  background-color: black;
+  cursor: pointer;
+}
+
+.upload-form {
+  display: none;
+}
+
+.upload-form.block {
+  display: block;
+}
+
+.upload-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.upload-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: white;
+}
+
+input[type="file"],
+input[type="text"] {
+  background-color: black;
+  color: white;
+  border: 1px solid white;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+input[type="text"]::placeholder {
+  color: gray;
+}
+
+button {
+  background-color: white;
+  color: black;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: gray;
+}

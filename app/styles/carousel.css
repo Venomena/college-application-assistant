@@ -1,0 +1,80 @@
+.carousel-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    height: 400px;
+    width: 200px;
+    overflow: hidden;
+  }
+  
+  .carousel-button {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 10;
+  }
+  
+  .carousel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    perspective: 1000px;
+  }
+  
+  .carousel-item {
+    position: absolute;
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.5s, opacity 0.5s;
+    opacity: 0;
+  }
+  
+  .carousel-item a {
+    text-decoration: none;
+    color: black;
+  }
+  
+  .carousel-item.active {
+    transform: translateY(0) scale(1.2);
+    opacity: 1;
+    z-index: 3;
+  }
+  
+  .carousel-item.next {
+    transform: translateY(60px) scale(0.9);
+    opacity: 0.7;
+    z-index: 2;
+  }
+  
+  .carousel-item.prev {
+    transform: translateY(-60px) scale(0.9);
+    opacity: 0.7;
+    z-index: 2;
+  }
+  
+  .item-enter {
+    opacity: 0;
+  }
+  
+  .item-enter-active {
+    opacity: 1;
+    transition: opacity 500ms;
+  }
+  
+  .item-exit {
+    opacity: 1;
+  }
+  
+  .item-exit-active {
+    opacity: 0;
+    transition: opacity 500ms;
+  }
+  

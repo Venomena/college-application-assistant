@@ -1,0 +1,1056 @@
+**page.tsx**
+"use client";
+
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import LoadingSpinner from "../components/LoadingSpinner";
+import ChatBox from "../components/ChatBox";
+import ChatInput from "../components/ChatInput";
+import { Label } from "../components/ui/Label";
+import { Input } from "../components/ui/Input";
+import Tips from "../components/Tips";
+
+interface Message {
+  role: "user" | "ai";
+  content: string;
+}
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingText, setLoadingText] = useState<string>("Analyzing requirements...");
+  const [formState, setFormState] = useState({
+    university: "",
+    satScore: "",
+    gpa: "",
+    cvFile: null as File | null,
+    others: "",
+  });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await axios.get("/api/auth/session");
+        if (!res.data.session) {
+          router.push("/login");
+        }
+      } catch (err) {
+        console.error("Error fetching session:", err);
+      }
+    };
+
+    fetchSession();
+  }, [router]);
+
+  const sendMessage = async (message: string) => {
+    setMessages((prev) => [...prev, { role: "user", content: message }]);
+    setLoading(true);
+    setLoadingText("Analyzing requirements...");
+
+    const formData = new FormData();
+    formData.append("message", message);
+    formData.append("university", formState.university);
+    formData.append("satScore", formState.satScore);
+    formData.append("gpa", formState.gpa);
+    if (formState.cvFile) formData.append("cv", formState.cvFile);
+    formData.append("others", formState.others);
+
+    try {
+      const response = await axios.post("/api/predict", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: () => setLoadingText("Uploading documents..."),
+      });
+
+      if (response.data && response.data.message) {
+        setLoadingText("Processing documents...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        setLoadingText("Searching for current data...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        setLoadingText("Compiling results...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", content: response.data.message },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", content: "Sorry, I couldn't process your request. Please try again." },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", content: "An error occurred while processing your request. Please try again later." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const file = e.target.files[0];
+    setFormState((prev) => ({ ...prev, cvFile: file }));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormState((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+
+  const isReadyToChat = formState.cvFile && (formState.satScore || formState.gpa || formState.others);
+
+  return (
+    <div className="flex flex-col md:flex-row h-screen bg-gray-50 text-black">
+      <div className="flex-1 flex flex-col p-4">
+        <header className="text-center py-4 border-b bg-white shadow-md">
+          <h1 className="text-2xl font-bold">College Application Assistant 🎓</h1>
+          <p className="text-sm text-gray-600">Upload your documents and enter your details to get personalized college application assistance.</p>
+        </header>
+        <div className="flex flex-col flex-1 overflow-hidden bg-white shadow-md rounded-lg">
+          <ChatBox messages={messages} />
+          {loading && <LoadingSpinner loadingText={loadingText} />}
+          <ChatInput
+            onSendMessage={sendMessage}
+            onBeastModeChange={() => {}}
+          />
+        </div>
+      </div>
+      <div className="md:w-1/3 p-6 border-t md:border-t-0 md:border-l bg-white shadow-md rounded-lg">
+        <div className="block md:hidden">
+          <button
+            className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded mb-4"
+            onClick={toggleMobileMenu}
+          >
+            {isMobileMenuOpen ? "Hide Uploads" : "Show Uploads"}
+          </button>
+        </div>
+        <div className={`${isMobileMenuOpen ? "block" : "hidden"} md:block`}>
+          <h2 className="text-xl font-semibold mb-4">Upload Documents (PDF)</h2>
+          <form className="space-y-4">
+            <div>
+              <Label htmlFor="cv">Upload CV/resume (PDF)</Label>
+              <Input id="cv" type="file" name="cv" onChange={handleFileChange} />
+            </div>
+            <div>
+              <Label htmlFor="university">Dream University (Optional)</Label>
+              <Input
+                id="university"
+                type="text"
+                name="university"
+                value={formState.university}
+                onChange={handleInputChange}
+                placeholder="Enter your dream university"
+              />
+            </div>
+            <div>
+              <Label htmlFor="satScore">SAT Score (Optional)</Label>
+              <Input
+                id="satScore"
+                type="text"
+                name="satScore"
+                value={formState.satScore}
+                onChange={handleInputChange}
+                placeholder="Enter your SAT score"
+              />
+            </div>
+            <div>
+              <Label htmlFor="gpa">GPA (Optional)</Label>
+              <Input
+                id="gpa"
+                type="text"
+                name="gpa"
+                value={formState.gpa}
+                onChange={handleInputChange}
+                placeholder="Enter your GPA"
+              />
+            </div>
+            <div>
+              <Label htmlFor="others">International Scores (Optional)</Label>
+              <Input
+                id="others"
+                type="text"
+                name="others"
+                value={formState.others}
+                onChange={handleInputChange}
+                placeholder="Enter other scores"
+              />
+            </div>
+          </form>
+          <Tips />
+        </div>
+      </div>
+    </div>
+  );
+}
+**CarouselComponent.tsx**
+import React, { useState } from "react";
+import { CSSTransition, TransitionGroup } from "react-transition-group";
+
+const items = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  content: `Link ${i + 1}`,
+}));
+
+const CarouselComponent = () => {
+  const [index, setIndex] = useState(0);
+
+  const incrementIndex = () => {
+    setIndex((prevIndex) => (prevIndex + 1) % items.length);
+  };
+
+  const decrementIndex = () => {
+    setIndex((prevIndex) =>
+      prevIndex === 0 ? items.length - 1 : prevIndex - 1
+    );
+  };
+
+  return (
+    <div className="carousel-container">
+      <button onClick={decrementIndex} className="carousel-button">
+        ↑
+      </button>
+      <TransitionGroup className="carousel">
+        {items.map((item, i) => {
+          const offset = (i - index + items.length) % items.length;
+          let className = "carousel-item";
+          if (offset === 0) className += " active";
+          if (offset === 1) className += " next";
+          if (offset === items.length - 1) className += " prev";
+
+          return (
+            <CSSTransition key={item.id} timeout={500} classNames="item">
+              <div className={className}>
+                <a href="#">{item.content}</a>
+              </div>
+            </CSSTransition>
+          );
+        })}
+      </TransitionGroup>
+      <button onClick={incrementIndex} className="carousel-button">
+        ↓
+      </button>
+    </div>
+  );
+};
+
+export default CarouselComponent;
+**ChatBox.tsx**
+import React, { useEffect, useRef } from 'react';
+
+interface Message {
+  role: "user" | "ai";
+  content: string;
+}
+
+interface ChatBoxProps {
+  messages: Message[];
+}
+
+const ChatBox: React.FC<ChatBoxProps> = ({ messages }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages]);
+
+  const formatContent = (content: string) => {
+    return content
+      .split('\n')
+      .map((line, i) => {
+        if (line.startsWith('##')) {
+          return `<h2 key=${i} class="text-xl font-semibold mb-2">${line.substring(2).trim()}</h2>`;
+        }
+        if (line.startsWith('*')) {
+          return `<li key=${i} class="list-disc pl-5 mb-1">${line.substring(1).trim()}</li>`;
+        }
+        if (line.includes('[http')) {
+          const regex = /\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
+          return line.replace(regex, '<a key=${i} href="$2" class="text-white underline" target="_blank">$1</a>');
+        }
+        return `<p key=${i} class="mb-2">${line}</p>`;
+      })
+      .join('');
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="chat-container p-4 bg-black border border-white rounded-lg overflow-y-auto flex-1 relative text-white"
+    >
+      {messages.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <p className="text-center">Don&apos;t forget to upload your application/CV before chatting 👉</p>
+        </div>
+      )}
+      {messages.map((msg, index) => (
+        <div
+          key={index}
+          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} gap-4 mb-4`}
+        >
+          {msg.role === "ai" ? (
+            <div
+              className="ai-message p-4 rounded-lg border border-white bg-black text-white"
+              dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }}
+            />
+          ) : (
+            <div className="user-message p-4 rounded-lg border border-white bg-black text-white">
+              {msg.content}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default ChatBox;
+
+**ChatInput.tsx**
+import React, { useState } from "react";
+import { Button } from "./ui/Button";
+
+interface ChatInputProps {
+  onSendMessage: (message: string) => void;
+  onBeastModeChange: (enabled: boolean) => void;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({
+  onSendMessage,
+  onBeastModeChange,
+}) => {
+  const [message, setMessage] = useState("");
+  const [beastMode, setBeastMode] = useState(false);
+
+  const handleSubmit = () => {
+    if (message.trim()) {
+      onSendMessage(message);
+      setMessage("");
+    }
+  };
+
+  return (
+    <div className="p-4 flex items-center space-x-4 border-t border-gray-200">
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type your message..."
+        className="flex-1 p-2 border rounded-lg"
+      />
+      <Button onClick={handleSubmit} className="button-primary">
+        Send
+      </Button>
+    </div>
+  );
+};
+
+export default ChatInput;
+
+**CollapsibleWidget.tsx**
+import { useState, ReactNode } from 'react';
+import { motion } from 'framer-motion';
+
+interface CollapsibleWidgetProps {
+  title: string;
+  children: ReactNode;
+}
+
+const CollapsibleWidget: React.FC<CollapsibleWidgetProps> = ({ title, children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleOpen = () => {
+    setIsOpen(!isOpen);
+  };
+
+  return (
+    <div className="w-full mb-4">
+      <button
+        className="w-full text-left text-lg font-semibold text-gray-800 bg-gray-200 p-2 rounded-md cursor-pointer transition duration-300 ease-in-out transform hover:bg-gray-300"
+        onClick={toggleOpen}
+      >
+        {title}
+        <span className={`float-right transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+          ▼
+        </span>
+      </button>
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
+        transition={{ duration: 0.5 }}
+        className="overflow-hidden"
+      >
+        {isOpen && <div className="mt-2 p-4 bg-white border rounded-md">{children}</div>}
+      </motion.div>
+    </div>
+  );
+};
+
+export default CollapsibleWidget;
+**LoadingSpinner.tsx**
+import React from "react";
+
+interface LoadingSpinnerProps {
+  loadingText: string;
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ loadingText }) => {
+  return (
+    <div className="flex flex-col items-center mt-4 mb-4">
+      <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-12 w-12"></div>
+      <p className="mt-2 text-gray-600">{loadingText}</p>
+    </div>
+  );
+};
+
+export default LoadingSpinner;
+
+**PredictionResult.tsx**
+import React from 'react';
+
+interface PredictionResultProps {
+  result: string;
+}
+
+const parseFormattedText = (text: string) => {
+  // Split the text into lines
+  const lines = text.split('\n');
+
+  return lines.map((line, index) => {
+    // Replace section headers
+    if (line.startsWith('##') && line.endsWith('##')) {
+      return <h2 key={index} className="text-xl font-bold mb-2">{line.slice(2, -2).trim()}</h2>;
+    }
+
+    // Replace bold text
+    line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Replace italic text
+    line = line.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Replace list items
+    if (line.startsWith('- ')) {
+      return <li key={index} dangerouslySetInnerHTML={{ __html: line.slice(2).trim() }} />;
+    }
+
+    return <p key={index} dangerouslySetInnerHTML={{ __html: line }} />;
+  });
+};
+
+const PredictionResult: React.FC<PredictionResultProps> = ({ result }) => {
+  return (
+    <div className="mt-4 p-4 bg-white rounded-md shadow-sm">
+      <h2 className="text-xl font-bold text-gray-800">Prediction Result</h2>
+      <div className="text-gray-700 mt-2 space-y-2">
+        <ul className="list-disc list-inside">
+          {parseFormattedText(result)}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default PredictionResult;
+
+**StackedWidgets.tsx**
+import { useState, useEffect } from 'react';
+import AcceptancePercentage from './AcceptancePercentage';
+import PredictionResult from './PredictionResult';
+import BeastModeTips from './BeastModeTips';
+import CollapsibleWidget from './CollapsibleWidget';
+
+interface StackedWidgetsProps {
+  acceptancePercentage: string;
+  result: string;
+  beastModeTips: string;
+  beastMode: boolean;
+}
+
+const StackedWidgets: React.FC<StackedWidgetsProps> = ({ acceptancePercentage, result, beastModeTips, beastMode }) => {
+  return (
+    <div className="relative w-full flex flex-col items-center">
+      <div className="w-full mb-4">
+        <AcceptancePercentage percentage={acceptancePercentage} />
+      </div>
+      <CollapsibleWidget title="Detailed Result">
+        <PredictionResult result={result} />
+      </CollapsibleWidget>
+      {beastMode && (
+        <CollapsibleWidget title="Beast Mode Tips">
+          <BeastModeTips tips={beastModeTips} />
+        </CollapsibleWidget>
+      )}
+    </div>
+  );
+};
+
+export default StackedWidgets;
+**Tips.tsx**
+import React from "react";
+
+const tips = `
+1. Upload you CV/application 📃
+2. Input your test scores and dream university 🎓
+3. Chat with the AI 🤖
+`;
+
+const Tips: React.FC = () => {
+  return (
+    <div className="mt-6 p-4 bg-yellow-100 rounded-md">
+      <h2 className="text-xl font-bold text-yellow-800">Tips for Using the Tool</h2>
+      <div className="text-yellow-600 mt-2">
+        {tips.split('\n').map((tip, index) => (
+          <p key={index}>{tip}</p>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default Tips;
+
+**VerticalCarousel.tsx**
+"use client";
+
+import { useState, useEffect } from "react";
+
+const snippets = [
+  "Boost Your Admission Chances",
+  "Personalized Feedback",
+  "Upload Your Documents",
+  "Get Detailed Analysis",
+  "Confidential & Secure",
+  "Dream University Acceptance"
+];
+
+const VerticalCarousel = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % snippets.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative h-12 overflow-hidden">
+      <div
+        className="absolute inset-0 transition-transform duration-1000"
+        style={{ transform: `translateY(-${currentIndex * 100}%)` }}
+      >
+        {snippets.map((snippet, index) => (
+          <div
+            key={index}
+            className="flex items-center justify-center h-12"
+          >
+            <p className="text-center font-medium">{snippet}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default VerticalCarousel;
+
+**Button.tsx**
+import React from 'react';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'ghost';
+  size?: 'default' | 'icon';
+}
+
+export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'default', ...props }) => {
+  let className = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none';
+  if (variant === 'primary') {
+    className += ' bg-green-600 text-white hover:bg-blue-700';
+  } else if (variant === 'ghost') {
+    className += ' bg-transparent text-gray-600 hover:bg-gray-100';
+  }
+  if (size === 'icon') {
+    className += ' p-2';
+  } else {
+    className += ' py-2 px-4';
+  }
+  return (
+    <button className={className} {...props}>
+      {children}
+    </button>
+  );
+};
+
+**Input.tsx**
+import React from 'react';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+export const Input: React.FC<InputProps> = (props) => {
+  return (
+    <input
+      className="mt-1 block w-full border border-gray-300 rounded-md p-2 text-black"
+      {...props}
+    />
+  );
+};
+**Label.tsx**
+import React from 'react';
+
+interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+
+export const Label: React.FC<LabelProps> = ({ children, ...props }) => {
+  return (
+    <label className="block text-sm font-medium text-gray-700" {...props}>
+      {children}
+    </label>
+  );
+};
+**carousel.tsx**
+import React, { useState, useEffect } from 'react';
+
+interface CarouselProps {
+  children: React.ReactNode;
+  className?: string;
+  opts: {
+    autoplay: boolean;
+    autoplayInterval: number;
+    loop: boolean;
+  };
+}
+
+interface CarouselItemProps {
+  children: React.ReactNode;
+}
+
+export function Carousel({ children, className, opts }: CarouselProps) {
+  const { autoplay, autoplayInterval, loop } = opts;
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    if (autoplay) {
+      interval = setInterval(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % React.Children.count(children));
+      }, autoplayInterval);
+    }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [autoplay, autoplayInterval, children]);
+
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <div className="flex flex-col transition-transform duration-300" style={{ transform: `translateY(-${currentIndex * 100}%)` }}>
+        {React.Children.map(children, (child, index) => (
+          <div key={index} className="w-full h-full">
+            {child}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function CarouselContent({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+export function CarouselItem({ children }: CarouselItemProps) {
+  return <div className="w-full">{children}</div>;
+}
+
+export function CarouselPrevious({ onClick = () => {} }: { onClick?: () => void }) {
+  return (
+    <button onClick={onClick} className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2">
+      &lt;
+    </button>
+  );
+}
+
+export function CarouselNext({ onClick = () => {} }: { onClick?: () => void }) {
+  return (
+    <button onClick={onClick} className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2">
+      &gt;
+    </button>
+  );
+}
+
+**layout.tsx**
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { dev } from './environment';
+import { inject } from '@vercel/analytics';
+import { Analytics } from "@vercel/analytics/react"
+import Script from 'next/script';
+
+const inter = Inter({ subsets: ["latin"] });
+inject({ mode: dev ? 'development' : 'production' });
+
+export const metadata: Metadata = {
+  title: "University Acceptance Assistant",
+  description: "AI assistant for university application process",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-GT6CN7VECS" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-GT6CN7VECS');
+          `}
+        </Script>
+      </head>
+      <body className={inter.className}>{children}</body>
+    </html>
+  );
+}
+
+**page.tsx**
+import Link from 'next/link';
+import Image from 'next/image';
+import { Input } from "../app/components/ui/Input";
+import { Button } from "../app/components/ui/Button";
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen bg-white text-gray-800">
+      <header className="sticky top-0 z-10 w-full bg-white shadow-lg py-4">
+        <div className="container mx-auto flex items-center justify-between px-6">
+          <div className="flex items-center gap-2">
+            <Image src="/placeholder.svg" alt="Logo" width={40} height={40} />
+            <span className="text-2xl font-bold text-indigo-600">University Application Assistant</span>
+          </div>
+          <Link href="/chat" legacyBehavior>
+            <a className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition duration-300">
+              Get Sta rted
+            </a>
+          </Link>
+        </div>
+      </header>
+      <main className="flex flex-col items-center justify-center w-full">
+        <section className="w-full py-24 bg-gradient-to-r from-indigo-50 to-white">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <div className="space-y-6">
+              <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl text-indigo-600">
+                Your Path to University Success
+              </h1>
+              <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600">
+                Get accepted into your dream university with our AI assistant. 
+              </p>
+              <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600">
+                 
+              </p>
+              <div className="mt-10">
+                <Link href="/chat" legacyBehavior>
+                  <a className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded transition duration-300">
+                    Chat with AI
+                  </a>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="w-full py-24 bg-white">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-gray-800">
+              How It Works
+            </h2>
+            <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mt-4">
+              Our AI assistant 
+              - helps you finding the right university for you
+              - guides you through the entire application process 
+              - provides personalized feedback and tips to improve your chances of acceptance.
+            </p>
+            <div className="mt-10">
+              <div className="relative max-w-4xl mx-auto">
+                <div className="relative overflow-hidden rounded-lg shadow-lg">
+                  <video className="rounded-lg shadow-lg" autoPlay loop muted style={{ clipPath: 'inset(5px 0 5px 0)' }}>
+                    <source src="/video.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="w-full py-24 bg-white">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-gray-800">
+              Get Started Now
+            </h2>
+            <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mt-4">
+              Increase your chances of acceptance by using our AI assistant. Upload your CV, application, and other documents, and get personalized feedback.
+            </p>
+            <div className="mt-10">
+              <Link href="/chat" legacyBehavior>
+                <a className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded transition duration-300">
+                  Chat with AI
+                </a>
+              </Link>
+            </div>
+          </div>
+        </section>
+        <section className="w-full py-12 bg-gray-50">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <p className="text-lg font-medium text-gray-600">For feedback and improvement advice:</p>
+            <Link href="https://twitter.com/VictorGulchenko" legacyBehavior>
+              <a className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">
+                Follow and message me on X (Twitter)
+              </a>
+            </Link>
+          </div>
+        </section>
+      </main>
+      <footer className="w-full py-4 text-center text-sm text-gray-600 bg-white border-t border-gray-200">
+        <p>© 2024 whatdoiwantfromlife.com. All rights reserved.</p>
+      </footer>
+    </div>
+  );
+}
+**page.tsx**
+"use client";
+
+import { SetStateAction, JSX, SVGProps, useState } from "react";
+import axios from "axios";
+import LoadingSpinner from "../components/LoadingSpinner";
+import Link from "next/link";
+import { Button } from "../components/ui/Button";
+import { Label } from "../components/ui/Label";
+import { Input } from "../components/ui/Input";
+import StackedWidgets from "../components/StackedWidgets";
+
+export default function PredictPage() {
+  const [university, setUniversity] = useState<string>("");
+  const [cv, setCv] = useState<File | null>(null);
+  const [application, setApplication] = useState<File | null>(null);
+  const [testScores, setTestScores] = useState<string>("");
+  const [result, setResult] = useState<string>("");
+  const [acceptancePercentage, setAcceptancePercentage] = useState<string>("");
+  const [beastModeTips, setBeastModeTips] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [beastMode, setBeastMode] = useState<boolean>(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("university", university);
+    if (cv) formData.append("cv", cv);
+    if (application) formData.append("application", application);
+    if (testScores) formData.append("testScores", testScores);
+    formData.append("beastMode", beastMode.toString());
+
+    try {
+      const response = await axios.post("/api/predict", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("Response Data:", response.data);
+
+      if (response.data) {
+        setResult(response.data.result || "");
+        setAcceptancePercentage(response.data.acceptance_percentage || "");
+        setBeastModeTips(response.data.beastModeTips || "");
+      } else {
+        setError("No response data received");
+      }
+    } catch (error) {
+      console.error("Prediction failed", error);
+      setError("Failed to get prediction. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-gray-100 text-gray-900">
+      <header className="sticky top-0 z-10 border-b bg-white px-4 py-3 shadow-sm md:px-6 md:py-4">
+        <div className="container mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2" prefetch={false}>
+            <BookOpenIcon className="h-6 w-6" />
+            <span className="text-lg font-semibold">University Acceptance Predictor</span>
+          </Link>
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <img src="/placeholder.svg" width={32} height={32} className="rounded-full" alt="User Avatar" />
+            <span className="sr-only">Toggle user menu</span>
+          </Button>
+        </div>
+      </header>
+      <main className="flex-1 px-4 py-8 md:px-6 md:py-10">
+        <div className="container mx-auto max-w-3xl space-y-8">
+          <section>
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Predict Your University Acceptance</h1>
+            <p className="mt-4 text-gray-700">
+              Upload your CV, application, and test scores to get an estimate of your chances of getting accepted into
+              your dream university.
+            </p>
+          </section>
+          <section>
+            <form onSubmit={handleSubmit} className="grid gap-6">
+              <div>
+                <Label htmlFor="university">University Name</Label>
+                <Input
+                  id="university"
+                  type="text"
+                  placeholder="Enter the university name"
+                  className="mt-1 border-gray-300 rounded-md p-2 w-full"
+                  value={university}
+                  onChange={(e: { target: { value: SetStateAction<string>; }; }) => {
+                    console.log("University name entered:", e.target.value);
+                    setUniversity(e.target.value);
+                  }}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="cv">Upload CV</Label>
+                <Input
+                  id="cv"
+                  type="file"
+                  className="mt-1 file:border file:border-gray-300 file:rounded-md file:px-4 file:py-2 file:cursor-pointer w-full"
+                  required
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    console.log("CV file selected:", e.target.files?.[0]);
+                    setCv(e.target.files?.[0] || null);
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="application">Upload Application (Optional)</Label>
+                <Input
+                  id="application"
+                  type="file"
+                  className="mt-1 file:border file:border-gray-300 file:rounded-md file:px-4 file:py-2 file:cursor-pointer w-full"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    console.log("Application file selected:", e.target.files?.[0]);
+                    setApplication(e.target.files?.[0] || null);
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="testScores">Test Scores</Label>
+                <Input
+                  id="testScores"
+                  type="text"
+                  placeholder="Enter your test scores (e.g., SAT: 1400, ACT: 32)"
+                  className="mt-1 border-gray-300 rounded-md p-2 w-full"
+                  value={testScores}
+                  onChange={(e: { target: { value: SetStateAction<string>; }; }) => {
+                    console.log("Test scores entered:", e.target.value);
+                    setTestScores(e.target.value);
+                  }}
+                />
+              </div>
+              <div className="flex items-center mt-4">
+                <Label htmlFor="beastMode" className="mr-2">Enable Beast Mode</Label>
+                <input
+                  id="beastMode"
+                  type="checkbox"
+                  className="w-6 h-6 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  checked={beastMode}
+                  onChange={(e) => setBeastMode(e.target.checked)}
+                />
+              </div>
+              <Button type="submit" className="w-full bg-gray-800 text-white py-3 font-semibold">
+                Predict Acceptance
+              </Button>
+              {loading && <LoadingSpinner loadingText="Loading..." />}
+              {error && <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md">{error}</div>}
+            </form>
+          </section>
+          {!result && (
+            <section className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border bg-white p-4">
+                <h3 className="text-lg font-semibold">Upload Your Documents</h3>
+                <p className="mt-2 text-gray-700">
+                  Provide your CV, application, and test scores to get an estimate of your chances of getting accepted.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-white p-4">
+                <h3 className="text-lg font-semibold">Receive Personalized Feedback</h3>
+                <p className="mt-2 text-gray-700">
+                  Our algorithm will analyze your documents and provide you with a detailed report on your acceptance
+                  chances.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-white p-4">
+                <h3 className="text-lg font-semibold">Improve Your Application</h3>
+                <p className="mt-2 text-gray-700">
+                  Use the feedback to identify areas for improvement and strengthen your application.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-white p-4">
+                <h3 className="text-lg font-semibold">Increase Your Chances</h3>
+                <p className="mt-2 text-gray-700">
+                  With our personalized guidance, you can increase your chances of getting accepted into your dream
+                  university.
+                </p>
+              </div>
+            </section>
+          )}
+          {(acceptancePercentage || result || beastModeTips) && (
+            <section className="relative mt-8">
+              <StackedWidgets
+                acceptancePercentage={acceptancePercentage}
+                result={result}
+                beastModeTips={beastModeTips}
+                beastMode={beastMode}
+              />
+            </section>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function BookOpenIcon(props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
