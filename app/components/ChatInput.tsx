@@ -19,12 +19,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    }
+  };
+
   return (
     <div className="p-4 flex items-center space-x-4 border-t border-gray-200">
       <input
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Type your message..."
         className="flex-1 p-2 border rounded-lg"
         aria-label="Message input"

@@ -33,7 +33,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const { fields, files } = await parseForm(req);
     const { university, satScore, gpa, userRequest, cvText, others } = await processFiles(fields, files);
     const searchResults = await performSearch(university, userRequest); // Pass userRequest to performSearch
-    const detailedPrompt = createDetailedPrompt(userRequest, cvText, satScore, gpa, others, searchResults);
+    const previousRequests: string[] = []; // Initialize an array to store previous requests
+    const detailedPrompt = createDetailedPrompt(userRequest, cvText, satScore, gpa, others, searchResults, previousRequests); // Pass previousRequests to createDetailedPrompt
     const detailedResponse = await getGeminiChatCompletion(detailedPrompt);
 
     let responseContent = '';
@@ -48,6 +49,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
     const formattedResponse = formatResponse(responseContent);
     res.status(200).json({ message: formattedResponse });
+
+    // After processing the request, add the current userRequest to previousRequests
+    previousRequests.push(userRequest);
   } catch (error) {
     console.error('Error during request handling:', error);
     res.status(500).json({ message: 'Prediction failed', error: (error as Error).message });
@@ -143,13 +147,15 @@ const searchWithGoogleCustomSearch = async (query: string): Promise<string> => {
   }
 };
 
-const createDetailedPrompt = (userRequest: string, cvText: string, satScore: string, gpa: string, others: string, searchResults: string[]) => {
+const createDetailedPrompt = (userRequest: string, cvText: string, satScore: string, gpa: string, others: string, searchResults: string[], previousRequests: string[]) => {
   const searchResultsTrimmed = searchResults.join('\n\n');
+  const previousRequestsFormatted = previousRequests.join('\n'); // Format previous requests
 
   return [
     {
       role: 'user',
       content: `Using the following details:
+      - Previous Requests: ${previousRequestsFormatted ? previousRequestsFormatted : 'No previous requests'}
       - CV: ${cvText ? cvText : 'No CV provided'}
       - SAT Score: ${satScore ? satScore : 'No SAT score provided'}
       - GPA: ${gpa ? gpa : 'No GPA provided'}
