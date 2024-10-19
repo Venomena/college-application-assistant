@@ -94,7 +94,7 @@ export default function LandingPage() {
         </section>
       </main>
       <footer className="w-full py-4 text-center text-sm text-gray-600 bg-white border-t border-gray-200">
-        <p>© 2024 whatdoiwantfromlife.com. All rights reserved.</p>
+        <p>© 2024 whatdoiwantfromlife.com. All rights reserved. By Victor Gulchenko</p>
       </footer>
     </div>
   );
